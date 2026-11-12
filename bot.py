@@ -2,6 +2,8 @@ import os
 import json
 import requests
 from pathlib import Path
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 BALE_BOT_TOKEN = os.environ["BALE_BOT_TOKEN"]
@@ -50,12 +52,29 @@ def get_prices():
     if missing:
         raise ValueError(f"Missing price data: {', '.join(sorted(missing))}")
 
+    now = datetime.now(timezone.utc)
+
     for symbol, item in prices.items():
         if item.get("stale") is True:
             raise ValueError(f"Stale price data: {symbol}")
 
-        if not item.get("timestamp"):
+        timestamp = item.get("timestamp")
+        if not timestamp:
             raise ValueError(f"Missing timestamp: {symbol}")
+
+        try:
+            price_time = datetime.fromisoformat(
+                timestamp.replace("Z", "+00:00")
+            )
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid timestamp: {symbol}")
+
+        age_minutes = (now - price_time).total_seconds() / 60
+
+        if age_minutes < 0 or age_minutes > 120:
+            raise ValueError(
+                f"Price too old or timestamp in future: {symbol}"
+            )
 
     return prices
 
@@ -85,8 +104,13 @@ def send_message(url, channel, message):
         raise RuntimeError(str(result))
 
 def main():
-    previous = {}
+    tehran_time = datetime.now(ZoneInfo("Asia/Tehran"))
 
+    if tehran_time.hour >= 22 or tehran_time.hour < 10:
+        print(f"ارسال پیام در این ساعت متوقف است: {tehran_time.strftime('%H:%M')}")
+        return
+
+    previous = {}
     if STATE_FILE.exists():
         previous = json.loads(STATE_FILE.read_text())
 

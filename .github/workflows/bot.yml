@@ -1,16 +1,20 @@
+
 name: Faravahar Price Bot
 
 on:
-  schedule:
-    - cron: "7,37 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: faravahar-price-bot
+  cancel-in-progress: false
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
 
     steps:
       - name: Get repository
@@ -24,13 +28,20 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Run bot
+      - name: Run bot every 30 minutes
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
-        run: python bot.py
+        run: |
+          for i in {1..12}; do
+            python bot.py || exit 1
+            if [ "$i" -lt 12 ]; then
+              sleep 1800
+            fi
+          done
 
       - name: Save previous prices
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

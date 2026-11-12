@@ -29,10 +29,16 @@ def get_prices():
     response.raise_for_status()
     payload = response.json()
 
-    return {
-        item["symbol"]: item
-        for item in payload["data"]
-    }
+    categories = payload["data"]["categories"]
+    prices = {}
+
+    for items in categories.values():
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict) and "symbol" in item:
+                    prices[item["symbol"]] = item
+
+    return prices
 
 def to_toman(item):
     price = float(item["price"])

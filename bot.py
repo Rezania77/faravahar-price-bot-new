@@ -32,11 +32,30 @@ def get_prices():
     categories = payload["data"]["categories"]
     prices = {}
 
+    required_symbols = {
+        "GOLD_18K_IRR",
+        "COIN_EMAMI_IRR",
+        "COIN_HALF_IRR",
+        "COIN_QUARTER_IRR",
+        "USD_IRR_FREE",
+    }
+
     for items in categories.values():
         if isinstance(items, list):
             for item in items:
-                if isinstance(item, dict) and "symbol" in item:
+                if isinstance(item, dict) and item.get("symbol") in required_symbols:
                     prices[item["symbol"]] = item
+
+    missing = required_symbols - prices.keys()
+    if missing:
+        raise ValueError(f"Missing price data: {', '.join(sorted(missing))}")
+
+    for symbol, item in prices.items():
+        if item.get("stale") is True:
+            raise ValueError(f"Stale price data: {symbol}")
+
+        if not item.get("timestamp"):
+            raise ValueError(f"Missing timestamp: {symbol}")
 
     return prices
 

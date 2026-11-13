@@ -58,6 +58,24 @@ def get_prices():
         if item.get("stale") is True:
             raise ValueError(f"Stale price data: {symbol}")
 
+        checked_at = item.get("checked_at")
+        if not checked_at:
+            raise ValueError(f"Missing checked_at: {symbol}")
+
+        try:
+            check_time = datetime.fromisoformat(
+                checked_at.replace("Z", "+00:00")
+            )
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid checked_at: {symbol}")
+
+        age_minutes = (now - check_time).total_seconds() / 60
+
+        if age_minutes < 0 or age_minutes > 120:
+            raise ValueError(
+                f"Data check too old or timestamp in future: {symbol}"
+            )
+
         timestamp = item.get("timestamp")
         if not timestamp:
             raise ValueError(f"Missing timestamp: {symbol}")
@@ -69,12 +87,8 @@ def get_prices():
         except (ValueError, TypeError):
             raise ValueError(f"Invalid timestamp: {symbol}")
 
-        age_minutes = (now - price_time).total_seconds() / 60
-
-        if age_minutes < 0 or age_minutes > 120:
-            raise ValueError(
-                f"Price too old or timestamp in future: {symbol}"
-            )
+        if price_time > now:
+            raise ValueError(f"Price timestamp in future: {symbol}")
 
     return prices
 
